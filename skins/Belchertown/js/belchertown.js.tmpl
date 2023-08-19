@@ -101,6 +101,33 @@ jQuery(document).ready(function() {
         }
     });
 
+    #if $Extras.has_key("back_to_top_button_enabled") and $Extras.back_to_top_button_enabled == '1'
+    // Back to Top Button is visible after 400px
+    jQuery(window).scroll(function() {
+        if (jQuery(this).scrollTop() > 400) {
+            jQuery('#btn-back-to-top').css('transform', 'scale(1)');
+        } else {
+            jQuery('#btn-back-to-top').css('transform', 'scale(0)');
+        }
+    });
+
+    jQuery('#btn-back-to-top').click(function() {
+        jQuery("html, body").animate({
+            scrollTop: 0
+        }, 1000);
+        return false;
+    });
+
+    #if $Extras.back_to_top_button_position == '1'
+    // Button is visible on left side
+    jQuery('#btn-back-to-top').css('left','20px').css('right','auto');
+    #end if
+
+    #if $Extras.back_to_top_button_opacity >= '0.1' and $Extras.back_to_top_button_opacity <= '0.9'
+    jQuery('#btn-back-to-top').css('opacity','$Extras.back_to_top_button_opacity');
+    #end if
+    #end if
+
 });
 
 #if $Extras.has_key("theme") and $Extras.theme == 'auto'
@@ -653,6 +680,7 @@ function update_weewx_data(data) {
     jQuery(".dailystatswindmax").html(data["day"]["wind"]["max"]);
     jQuery(".dailystatsrain").html(data["day"]["rain"]["sum"]);
     jQuery(".dailystatsrainrate").html(data["day"]["rain"]["max"]);
+    jQuery(".dailywindrun").html(data["day"]["wind"]["windrun"]);
 
     // Month Snapshot Stats Section
     jQuery(".monthstatshigh").html(data["month"]["outTemp"]["max"]);
@@ -665,6 +693,8 @@ function update_weewx_data(data) {
     // Sunrise and Sunset            
     jQuery(".sunrise-value").html(tzAdjustedMoment(parseFloat(data["almanac"]["sunrise_epoch"]).toFixed(0)).format("$obs.label.time_sunrise"));
     jQuery(".sunset-value").html(tzAdjustedMoment(parseFloat(data["almanac"]["sunset_epoch"]).toFixed(0)).format("$obs.label.time_sunset"));
+    jQuery(".moonrise-value").html(tzAdjustedMoment(parseFloat(data["almanac"]["moon"]["moon_rise_epoch"]).toFixed(0)).format("$obs.label.time_sunrise"));
+    jQuery(".moonset-value").html(tzAdjustedMoment(parseFloat(data["almanac"]["moon"]["moon_set_epoch"]).toFixed(0)).format("$obs.label.time_sunrise"));
 
     // Moon icon, phase and illumination percent
     jQuery(".moon-icon").html(moon_icon(data["almanac"]["moon"]["moon_index"]));        
@@ -1216,11 +1246,13 @@ function update_forecast_data(data) {
                     avgTemp = data[(forecast_interval)][0]["response"][0]["periods"][i]["avgTempC"];
                     minTemp = data[(forecast_interval)][0]["response"][0]["periods"][i]["minTempC"];
                     maxTemp = data[(forecast_interval)][0]["response"][0]["periods"][i]["maxTempC"];
+                    var dewPoint = data[(forecast_interval)][0]["response"][0]["periods"][i]["dewpointC"];
                 } else {
                     // Default
                     avgTemp = data[(forecast_interval)][0]["response"][0]["periods"][i]["avgTempF"];
                     minTemp = data[(forecast_interval)][0]["response"][0]["periods"][i]["minTempF"];
                     maxTemp = data[(forecast_interval)][0]["response"][0]["periods"][i]["maxTempF"];
+                    var dewPoint = data[(forecast_interval)][0]["response"][0]["periods"][i]["dewpointF"];
                 }
 
                 //  for 1hr interval determine temperature range, set to a minimum value of 2; also avoids div by zero
@@ -1261,6 +1293,9 @@ function update_forecast_data(data) {
                 */
                 var precip = data[(forecast_interval)][0]["response"][0]["periods"][i]["pop"] || 0;
 
+                // Humidity
+                var humidity = data[(forecast_interval)][0]["response"][0]["periods"][i]["humidity"];
+
                 /*
                 Determine snow unit. "snowCM" and "snowIN" are specified
                 to always return a number. We still convert to 0 if we ever get
@@ -1296,6 +1331,8 @@ function update_forecast_data(data) {
                     "snow_depth": snow_depth,
                     "snow_unit": snow_unit,
                     "precip": precip,
+                    "humidity": humidity,
+                    "dewPoint": dewPoint,
                     "forecast_link": forecast_link
                 });
             }
@@ -1319,10 +1356,19 @@ function update_forecast_data(data) {
                     }
                     output_html += '<span id="weekday">' + forecast_time(i, forecast_interval, forecast_row[i]["weekday"]) + '</span>';
                     output_html += '<br>';
-                    output_html += '<div class="forecast-conditions">';
+                    output_html += '<div class="forecast-conditions"';
+                    #if $Extras.has_key("forecast_show_humidity_dewpoint") and $Extras.forecast_show_humidity_dewpoint > '0'
+                    output_html += ' style="min-height:155px">'
                     output_html += '<div class="forecast-temp-graph" style="padding-top:';
-                    //  padding = ( ( highTemp - forecast_row[i]["avgTemp"] = offset ) * 100 / ( rangeTemp) ) where 100 ~ max calculated space available for padding 
+                    //  padding = ( ( highTemp - forecast_row[i]["avgTemp"] = offset ) * 76 / ( rangeTemp) ) where 100 ~ max calculated space available for padding
+                    output_html += parseInt((highTemp - forecast_row[i]["avgTemp"] + offset) * 76 / (rangeTemp)) + 'px';
+                    output_html += '; height:155px">'
+                    #else
+                    output_html += '>'
+                    output_html += '<div class="forecast-temp-graph" style="padding-top:';
+                    //  padding = ( ( highTemp - forecast_row[i]["avgTemp"] = offset ) * 100 / ( rangeTemp) ) where 100 ~ max calculated space available for padding
                     output_html += parseInt((highTemp - forecast_row[i]["avgTemp"] + offset) * 100 / (rangeTemp)) + 'px">';
+                    #end if
                     output_html += '<div class="forecast-image">';
                     output_html += '<img id="icon" src="' + forecast_row[i]["image_url"] + '">';
                     output_html += '</div>';
@@ -1330,6 +1376,11 @@ function update_forecast_data(data) {
                     output_html += '</div>';
                     //  output_html += '<br>';
                     output_html += '<div class="forecast-precip">';
+                    #if $Extras.has_key("forecast_show_humidity_dewpoint") and $Extras.forecast_show_humidity_dewpoint == '1'
+                    output_html += '<div><i class="wi wi-humidity rain-precip"></i> <span>' + parseFloat(forecast_row[i]["humidity"]).toFixed(0) + '%</span></div>';
+                    #elif $Extras.has_key("forecast_show_humidity_dewpoint") and $Extras.forecast_show_humidity_dewpoint == '2'
+                    output_html += '<div><i class="wi wi-raindrops rain-precip"></i> <span>' + parseFloat(forecast_row[i]["dewPoint"]).toFixed(0) + '&deg;</span></div>';
+                    #end if
                     if (forecast_row[i]["snow_depth"] > 0) {
                         output_html += '<div class="snow-precip">';
                         // output_html += '<img src="'+get_relative_url()+'/images/snowflake-icon-15px.png"> <span>';
@@ -1377,6 +1428,11 @@ function update_forecast_data(data) {
                     output_html += '<span class="forecast-high">' + parseFloat(forecast_row[i]["maxTemp"]).toFixed(0) + '&deg;</span> | <span class="forecast-low">' + parseFloat(forecast_row[i]["minTemp"]).toFixed(0) + '&deg;</span>';
                     output_html += '<br>';
                     output_html += '<div class="forecast-precip">';
+                    #if $Extras.has_key("forecast_show_humidity_dewpoint") and $Extras.forecast_show_humidity_dewpoint == '1'
+                    output_html += '<i class="wi wi-humidity rain-precip"></i> <span>' + parseFloat(forecast_row[i]["humidity"]).toFixed(0) + '%</span> | ';
+                    #elif $Extras.has_key("forecast_show_humidity_dewpoint") and $Extras.forecast_show_humidity_dewpoint == '2'
+                    output_html += '<i class="wi wi-raindrops rain-precip"></i> <span>' + parseFloat(forecast_row[i]["dewPoint"]).toFixed(0) + '&deg;</span> | ';
+                    #end if
                     if (forecast_row[i]["snow_depth"] > 0) {
                         output_html += '<div class="snow-precip">';
                         output_html += '<img src="' + get_relative_url() + '/images/snowflake-icon-15px.png"> <span>' + parseFloat(forecast_row[i]["snow_depth"]).toFixed(0) + '<span> ' + forecast_row[i]["snow_unit"];
@@ -1521,11 +1577,6 @@ var inactive_timestamp = "";
 
 // MQTT connect
 function connect() {
-    #if $Extras.has_key("mqtt_websockets_ssl") and $Extras.mqtt_websockets_ssl == '1'
-    belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host $Extras.mqtt_websockets_port (SSL Enabled)");
-    #else
-    belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host $Extras.mqtt_websockets_port (SSL Disabled)");
-    #end if
     if (reconnect_using_inactive_timestamp) {
             updated = tzAdjustedMoment(inactive_timestamp).format("$obs.label.time_last_updated");
         } else {
@@ -1537,20 +1588,51 @@ function connect() {
     jQuery(".offlineMarker").hide();
     jQuery(".loadingMarker").show();
 
+    #if $Extras.has_key("mqtt_websockets_host_kiosk") and $Extras.mqtt_websockets_host_kiosk != ""
+    if (pageName == "kiosk.html") {
+        #if $Extras.has_key("mqtt_websockets_ssl_kiosk") and $Extras.mqtt_websockets_ssl_kiosk == '1'
+        belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host_kiosk $mqtt_websockets_port_kiosk (SSL Enabled)");
+        var useSSL = true;
+        #else
+        belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host_kiosk $mqtt_websockets_port_kiosk (SSL Disabled)");
+        var useSSL = false;
+        #end if
+        client = new Paho.Client("$Extras.mqtt_websockets_host_kiosk", $mqtt_websockets_port_kiosk, mqttclient);
+    }
+    else {
+        #if $Extras.has_key("mqtt_websockets_ssl") and $Extras.mqtt_websockets_ssl == '1'
+        belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host $Extras.mqtt_websockets_port (SSL Enabled)");
+        var useSSL = true;
+        #else
+        belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host $Extras.mqtt_websockets_port (SSL Disabled)");
+        var useSSL = false;
+        #end if
+        client = new Paho.Client("$Extras.mqtt_websockets_host", $Extras.mqtt_websockets_port, mqttclient);
+    }
+    #else
+    #if $Extras.has_key("mqtt_websockets_ssl") and $Extras.mqtt_websockets_ssl == '1'
+    belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host $Extras.mqtt_websockets_port (SSL Enabled)");
+    var useSSL = true;
+    #else
+    belchertown_debug("MQTT: Connecting to MQTT Websockets: $Extras.mqtt_websockets_host $Extras.mqtt_websockets_port (SSL Disabled)");
+    var useSSL = false;
+    #end if
     client = new Paho.Client("$Extras.mqtt_websockets_host", $Extras.mqtt_websockets_port, mqttclient);
+    #end if
     client.onConnectionLost = onConnectionLost;
     client.onMessageArrived = onMessageArrived;
     var options = {
-        #if $Extras.has_key("mqtt_websockets_ssl") and $Extras.mqtt_websockets_ssl == '1'
-        useSSL: true,
-        #else
-        useSSL: false,
-        #end if
-        #if $Extras.has_key("mqtt_websockets_username") and $Extras.has_key("mqtt_websockets_password")
+        useSSL: useSSL,
+        #if $Extras.has_key("mqtt_websockets_username") and $Extras.has_key("mqtt_websockets_password") and $Extras.mqtt_websockets_username != "" and $Extras.mqtt_websockets_password != ""
         userName:"$Extras.mqtt_websockets_username",
         password:"$Extras.mqtt_websockets_password",
         #end if
-        mqttVersion: 3,
+        // mqttVersion: 4 is spec MQTTv3.1.1 - mqttVersion: 3 is spec MQTTv3.1
+        mqttVersion: 4,
+        // If mqttVersionExplicit is true, it will force the connection to use the selected MQTT Version or will fail to connect.
+        // If mqttVersionExplicit is false and mqttVersion is 4, it will try mqttVersion: 4 and if it fails it will fallback to mqttVersion: 3
+        // Here's the relevant code: https://github.com/eclipse/paho.mqtt.javascript/blob/f5859463aba9a9b7c19f99ab7c4849a723f8d832/src/paho-mqtt.js#L1610
+        mqttVersionExplicit: false,
         reconnect: true,
         onSuccess: onConnect,
         onFailure: onFailure
@@ -1579,9 +1661,12 @@ function onConnect() {
     client.subscribe("$Extras.mqtt_websockets_topic");
     #if $Extras.has_key("disconnect_live_website_visitor") and $Extras.disconnect_live_website_visitor != '0'
     if (getURLvar("stayconnected") && (getURLvar("stayconnected") == "true" || getURLvar("stayconnected") == "1")) {
-        belchertown_debug("stayconnected URL var found: ignoring disconnect_live_website_visitor value");
+        belchertown_debug("MQTT: stayconnected URL var found: ignoring disconnect_live_website_visitor value");
     } else {
-        if (pageName != "pi") {
+        if  (pageName == "pi" || pageName == "kiosk.html") {
+            belchertown_debug("MQTT: ignoring disconnect_live_website_visitor value for page: " + pageName);
+        }
+        else {
             var activityTimeout = setTimeout(inactive, $Extras.disconnect_live_website_visitor); // Stop automatic ajax refresh
         }
     }
@@ -1667,31 +1752,34 @@ function update_current_wx(data) {
 
     // This message is a weewx archive update. Update weewx data, forecast data and highcharts graphs
     if (data.hasOwnProperty("interval_minute")) {
-            // Delays are recommended to allow the other skins to complete processing
-            belchertown_debug("MQTT: MQTT message indicates this is an archive interval.");
-            if (pageName != "pi") {
-                setTimeout(showChart, 30000, homepage_graphgroup); // Load updated charts. 
-            }
-            ajaxweewx().then(function(weewx_data) { // This call will make sure json/weewx_data.json is loaded before anything else
-                setTimeout(update_weewx_data.bind(null, weewx_data), 10000); // Initial call to update (date, daily high, low, etc)
-                setTimeout(belchertown_debug.bind(null, weewx_data), 10000); // Make weewx_data.json available in debugging console
-            #if $Extras.has_key("forecast_enabled") and $Extras.forecast_enabled == '1'
-                setTimeout(ajaxforecast, 10000); // Update forecast data
-            #end if
-            }).catch(function(e) {
-                console.log(e);
-            });
-        } else {
-            // Only show the updated time on non-archive packets
-            epoch = parseFloat(data["dateTime"]).toFixed(0);
-            updated = tzAdjustedMoment(epoch).format("$obs.label.time_last_updated");
-            if (pageName == "pi") {
-                updated_text = "$obs.label.mqtt_websockets_connected_pi " + updated;
-            } else {
-                updated_text = "$obs.label.mqtt_websockets_connected " + updated;
-            }
-            jQuery(".updated").html(updated_text);
+        // Delays are recommended to allow the other skins to complete processing
+        belchertown_debug("MQTT: MQTT message indicates this is an archive interval.");
+        if (pageName == "pi" || pageName == "kiosk.html") {
+            belchertown_debug("Skipping chart update for page " + pageName + ", no charts to be updated.");
         }
+        else {
+            setTimeout(showChart, 30000, homepage_graphgroup); // Load updated charts.
+        }
+        ajaxweewx().then(function(weewx_data) { // This call will make sure json/weewx_data.json is loaded before anything else
+            setTimeout(update_weewx_data.bind(null, weewx_data), 10000); // Initial call to update (date, daily high, low, etc)
+            setTimeout(belchertown_debug.bind(null, weewx_data), 10000); // Make weewx_data.json available in debugging console
+        #if $Extras.has_key("forecast_enabled") and $Extras.forecast_enabled == '1'
+            setTimeout(ajaxforecast, 10000); // Update forecast data
+        #end if
+        }).catch(function(e) {
+            console.log(e);
+        });
+    } else {
+        // Only show the updated time on non-archive packets
+        epoch = parseFloat(data["dateTime"]).toFixed(0);
+        updated = tzAdjustedMoment(epoch).format("$obs.label.time_last_updated");
+        if (pageName == "pi") {
+            updated_text = "$obs.label.mqtt_websockets_connected_pi " + updated;
+        } else {
+            updated_text = "$obs.label.mqtt_websockets_connected " + updated;
+        }
+        jQuery(".updated").html(updated_text);
+    }
     // If we're in this function, show the online beacon and hide the others
     jQuery(".onlineMarker").show(); // Show the online beacon
     jQuery(".offlineMarker").hide();
@@ -2606,6 +2694,7 @@ function showChart(json_file, prepend_renderTo = false) {
                 var currentSeries = options.series;
                 var currentSeriesData = options.series[0].data;
                 var range_unit = options.series[0].range_unit;
+                var rounding = options.series[0].rounding;
                 var newSeriesData = [];
                 var currentSeriesColor = options.series[0].color;
                 currentSeriesData.forEach(seriesData => {
@@ -2620,6 +2709,7 @@ function showChart(json_file, prepend_renderTo = false) {
                     data: newSeriesData,
                     obsType: "haysChart",
                     obsUnit: range_unit,
+                    rounding: rounding,
                     color: currentSeriesColor,
                     fillColor: currentSeriesColor,
                     connectEnds: false,
@@ -2751,6 +2841,7 @@ function showChart(json_file, prepend_renderTo = false) {
                 var currentSeries = options.series;
                 var currentSeriesData = options.series[0].data;
                 var range_unit = options.series[0].range_unit;
+                var rounding = options.series[0].rounding;
                 var newSeriesData = [];
                 currentSeriesData.forEach(seriesData => {
                     if (options.series[0].color) {
@@ -2771,7 +2862,8 @@ function showChart(json_file, prepend_renderTo = false) {
                 options.series.push({
                     data: newSeriesData,
                     obsType: "weatherRange",
-                    obsUnit: range_unit
+                    obsUnit: range_unit,
+                    rounding: rounding
                 });
             }
 
