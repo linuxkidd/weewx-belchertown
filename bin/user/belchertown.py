@@ -19,7 +19,7 @@ import sys
 import syslog
 import time
 from collections import OrderedDict
-from math import asin, atan2, cos, degrees, pi, radians, sin, sqrt
+from math import asin, atan2, cos, degrees, floor, pi, radians, sin, sqrt
 from re import match
 
 import configobj
@@ -170,25 +170,10 @@ class getData(SearchList):
         return compass_bearing
 
     def get_cardinal_direction(self, degree, return_only_labels=False):
-        default_ordinate_names = [
-            "N",
-            "NNE",
-            "NE",
-            "ENE",
-            "E",
-            "ESE",
-            "SE",
-            "SSE",
-            "S",
-            "SSW",
-            "SW",
-            "WSW",
-            "W",
-            "WNW",
-            "NW",
-            "NNW",
-            "N/A",
-        ]
+        default_ordinate_names = [ "N", "NNE", "NE", "ENE", 
+                                    "E", "ESE", "SE", "SSE",
+                                    "S", "SSW", "SW", "WSW",
+                                    "W", "WNW", "NW", "NNW" ]
         try:
             ordinate_names = weeutil.weeutil.option_as_list(
                 self.generator.skin_dict["Units"]["Ordinates"]["directions"]
@@ -199,40 +184,9 @@ class getData(SearchList):
         if return_only_labels:
             return ordinate_names
 
-        if 0 <= degree <= 11.25:
-            return ordinate_names[0]
-        if 11.26 <= degree <= 33.75:
-            return ordinate_names[1]
-        if 33.76 <= degree <= 56.25:
-            return ordinate_names[2]
-        if 56.26 <= degree <= 78.75:
-            return ordinate_names[3]
-        if 78.76 <= degree <= 101.25:
-            return ordinate_names[4]
-        if 101.26 <= degree <= 123.75:
-            return ordinate_names[5]
-        if 123.76 <= degree <= 146.25:
-            return ordinate_names[6]
-        if 146.26 <= degree <= 168.75:
-            return ordinate_names[7]
-        if 168.76 <= degree <= 191.25:
-            return ordinate_names[8]
-        if 191.26 <= degree <= 213.75:
-            return ordinate_names[9]
-        if 213.76 <= degree <= 236.25:
-            return ordinate_names[10]
-        if 236.26 <= degree <= 258.75:
-            return ordinate_names[11]
-        if 258.76 <= degree <= 281.25:
-            return ordinate_names[12]
-        if 281.26 <= degree <= 303.75:
-            return ordinate_names[13]
-        if 303.76 <= degree <= 326.25:
-            return ordinate_names[14]
-        if 326.26 <= degree <= 348.75:
-            return ordinate_names[15]
-        if 348.76 <= degree <= 360:
-            return ordinate_names[0]
+        divdegrees = 360 / len(ordinate_names)
+        myval = floor((mydeg / divdegrees) + 0.5)
+        return cardinals[myval % divisions]
 
     def get_extension_list(self, timespan, db_lookup):
         """
@@ -3890,42 +3844,6 @@ class HighchartsJsonGenerator(weewx.reportengine.ReportGenerator):
         # spaces and bounded by [ and ]
         # windroseData = '[' + ','.join(str(z) for z in windrose_list) + ']'
         return windrose_list
-
-    def get_cardinal_direction(self, degree):
-        if 0 <= degree <= 11.25:
-            return "N"
-        if 11.26 <= degree <= 33.75:
-            return "NNE"
-        if 33.76 <= degree <= 56.25:
-            return "NE"
-        if 56.26 <= degree <= 78.75:
-            return "ENE"
-        if 78.76 <= degree <= 101.25:
-            return "E"
-        if 101.26 <= degree <= 123.75:
-            return "ESE"
-        if 123.76 <= degree <= 146.25:
-            return "SE"
-        if 146.26 <= degree <= 168.75:
-            return "SSE"
-        if 168.76 <= degree <= 191.25:
-            return "S"
-        if 191.26 <= degree <= 213.75:
-            return "SSW"
-        if 213.76 <= degree <= 236.25:
-            return "SW"
-        if 236.26 <= degree <= 258.75:
-            return "WSW"
-        if 258.76 <= degree <= 281.25:
-            return "W"
-        if 281.26 <= degree <= 303.75:
-            return "WNW"
-        if 303.76 <= degree <= 326.25:
-            return "NW"
-        if 326.26 <= degree <= 348.75:
-            return "NNW"
-        if 348.76 <= degree <= 360:
-            return "N"
 
     def highcharts_series_options_to_float(self, d):
         """
